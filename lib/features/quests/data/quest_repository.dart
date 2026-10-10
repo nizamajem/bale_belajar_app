@@ -77,8 +77,13 @@ class QuestRepository {
   }
 
   Future<String> startAttempt(String assignmentId) async {
+    final data = await startAttemptInfo(assignmentId);
+    return data['id'] as String;
+  }
+
+  Future<Map<String, dynamic>> startAttemptInfo(String assignmentId) async {
     final data = await _apiClient.post('/student/quests/$assignmentId/start');
-    return (data as Map<String, dynamic>)['id'] as String;
+    return data as Map<String, dynamic>;
   }
 
   Future<void> saveAnswer({

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'dart:async';
 
 import '../../../core/api/api_client.dart';
 import '../data/quest_repository.dart';
@@ -39,6 +40,98 @@ class QuestAttemptController extends ChangeNotifier {
   int currentIndex = 0;
   final Map<String, Map<String, dynamic>> answers = {};
   QuestSubmitResult? result;
+  DateTime? expiresAt;
+  Timer? _clock;
+  Timer? _draftTimer;
+  Future<void>? _draftSave;
+  ({String questionId, Map<String, dynamic> payload})? _pendingDraft;
+  bool _expiredSubmitStarted = false;
+  bool _disposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  bool get isTimedExam => quest?.isTimedExam ?? false;
+  int get remainingSeconds => expiresAt == null
+      ? 0
+      : expiresAt!
+          .difference(DateTime.now())
+          .inSeconds
+          .clamp(0, 100000)
+          .toInt();
+  bool get examExpired =>
+      isTimedExam && expiresAt != null && remainingSeconds <= 0;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _clock?.cancel();
+    _draftTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startExamClock() {
+    _clock?.cancel();
+    if (!isTimedExam) return;
+    _clock = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (status != QuestLoadStatus.ready) return;
+      if (examExpired && !_expiredSubmitStarted && !isSavingAnswer) {
+        _expiredSubmitStarted = true;
+        submit();
+      } else {
+        notifyListeners();
+      }
+    });
+  }
+
+  void saveCurrentDraft(Map<String, dynamic> payload) {
+    if (!isTimedExam || examExpired || status != QuestLoadStatus.ready) return;
+    final questionId = currentQuestion.id as String;
+    answers[questionId] = payload;
+    _pendingDraft = (questionId: questionId, payload: payload);
+    _draftTimer?.cancel();
+    _draftTimer = Timer(const Duration(milliseconds: 500), () {
+      final previous = _draftSave;
+      _draftSave = () async {
+        await previous;
+        await _flushDraft();
+      }();
+    });
+  }
+
+  Future<void> _flushDraft() async {
+    _draftTimer?.cancel();
+    final draft = _pendingDraft;
+    _pendingDraft = null;
+    if (draft == null || _attemptId == null || examExpired) return;
+    try {
+      await _repository.saveAnswer(
+          attemptId: _attemptId!,
+          questionId: draft.questionId,
+          payload: draft.payload);
+    } catch (_) {
+      if (status == QuestLoadStatus.ready) {
+        errorMessage =
+            'Draf belum tersimpan. Tekan Simpan jawaban untuk mencoba lagi.';
+      }
+    }
+  }
+
+  Future<void> goToQuestion(int index) async {
+    if (!isTimedExam ||
+        isSavingAnswer ||
+        index < 0 ||
+        index >= totalQuestions ||
+        examExpired) {
+      return;
+    }
+    await _draftSave;
+    await _flushDraft();
+    currentIndex = index;
+    notifyListeners();
+  }
 
   int get totalQuestions => quest?.questions.length ?? 0;
   bool get isLastQuestion => currentIndex >= totalQuestions - 1;
@@ -59,15 +152,28 @@ class QuestAttemptController extends ChangeNotifier {
       quest = summary;
       _attemptId = attemptId;
       currentIndex = 0;
+      answers.clear();
+      for (final question in summary.questions) {
+        if (question.savedAnswer != null) {
+          answers[question.id] = question.savedAnswer!;
+        }
+      }
+      expiresAt = summary.expiresAt;
       if (attemptId != null && summary.attemptStatus == 'SUBMITTED') {
         result = await _repository.getResult(attemptId);
         status = QuestLoadStatus.submitted;
         notifyListeners();
         return;
       }
-      attemptId ??= await _repository.startAttempt(summary.assignmentId);
+      if (attemptId == null) {
+        final started =
+            await _repository.startAttemptInfo(summary.assignmentId);
+        attemptId = started['id'] as String;
+        expiresAt = DateTime.tryParse(started['expiresAt'] as String? ?? '');
+      }
       _attemptId = attemptId;
       status = QuestLoadStatus.ready;
+      _startExamClock();
     } catch (error) {
       errorMessage = error.toString();
       status = QuestLoadStatus.error;
@@ -96,6 +202,13 @@ class QuestAttemptController extends ChangeNotifier {
   /// Simpan jawaban soal saat ini lalu maju ke soal berikutnya, atau submit
   /// kalau ini soal terakhir.
   Future<void> answerCurrentAndAdvance(Map<String, dynamic> payload) async {
+    if (examExpired) {
+      await submit();
+      return;
+    }
+    _draftTimer?.cancel();
+    _pendingDraft = null;
+    await _draftSave;
     final question = currentQuestion;
     answers[question.id as String] = payload;
     isSavingAnswer = true;
@@ -133,10 +246,12 @@ class QuestAttemptController extends ChangeNotifier {
     }
 
     isSavingAnswer = false;
-    if (isLastQuestion) {
+    if (isLastQuestion && !isTimedExam) {
       await submit();
-    } else {
+    } else if (!isLastQuestion) {
       currentIndex += 1;
+      notifyListeners();
+    } else {
       notifyListeners();
     }
   }
@@ -144,8 +259,14 @@ class QuestAttemptController extends ChangeNotifier {
   Future<void> submit() async {
     final attemptId = _attemptId;
     if (attemptId == null) return;
+    if (status == QuestLoadStatus.submitting ||
+        status == QuestLoadStatus.submitted) {
+      return;
+    }
     status = QuestLoadStatus.submitting;
     notifyListeners();
+    await _draftSave;
+    await _flushDraft();
     try {
       result = await _repository.submitAttempt(attemptId);
       status = QuestLoadStatus.submitted;

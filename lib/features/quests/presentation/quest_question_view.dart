@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../test_templates/domain/test_template_models.dart';
 import '../../test_templates/presentation/templates/test_templates.dart';
+import 'korean_activity_view.dart';
 
 /// Dispatcher berbasis `question.questionType` (bukan berdasarkan posisi
 /// index seperti bug yang ditemukan di `_PlacementTestFlow` pada
@@ -18,6 +19,9 @@ class QuestQuestionView extends StatelessWidget {
     required this.currentQuestion,
     required this.totalQuestions,
     required this.onAnswered,
+    this.worldKey,
+    this.onDraft,
+    this.savedAnswer,
     super.key,
   });
 
@@ -25,9 +29,27 @@ class QuestQuestionView extends StatelessWidget {
   final int currentQuestion;
   final int totalQuestions;
   final ValueChanged<Map<String, dynamic>> onAnswered;
+  final String? worldKey;
+  final ValueChanged<Map<String, dynamic>>? onDraft;
+  final Map<String, dynamic>? savedAnswer;
 
   @override
   Widget build(BuildContext context) {
+    if ((question.questionType == QuestionType.audioChoice &&
+            question.media?.url == 'tts:ko-KR') ||
+        (question.questionType == QuestionType.longText &&
+            (worldKey?.startsWith('korean-') ?? false)) ||
+        (question.questionType == QuestionType.singleChoice &&
+            (worldKey?.startsWith('korean-topik-') ?? false))) {
+      return KoreanActivityView(
+          key: ValueKey(question.id),
+          question: question,
+          currentQuestion: currentQuestion,
+          totalQuestions: totalQuestions,
+          onDraft: onDraft,
+          savedAnswer: savedAnswer,
+          onAnswered: onAnswered);
+    }
     switch (question.questionType) {
       case QuestionType.singleChoice:
         return SingleChoiceTemplate(

@@ -41,7 +41,7 @@ class _KoreanPathScreenState extends State<KoreanPathScreen> {
     await next;
   }
 
-  Future<void> _openLesson() async {
+  Future<void> _openLesson([String? competencyId]) async {
     if (_opening) return;
     setState(() => _opening = true);
     try {
@@ -57,8 +57,10 @@ class _KoreanPathScreenState extends State<KoreanPathScreen> {
         return;
       }
       await Navigator.of(context).push<bool>(MaterialPageRoute(
-        builder: (_) =>
-            QuestScreen(worldKey: 'korean-learning', requestNext: needsNext),
+        builder: (_) => QuestScreen(
+            worldKey: 'korean-learning',
+            requestNext: needsNext,
+            competencyId: competencyId),
       ));
       if (mounted) await _refresh();
     } catch (error) {
@@ -80,6 +82,32 @@ class _KoreanPathScreenState extends State<KoreanPathScreen> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('$error')));
       }
+    }
+  }
+
+  Future<void> _openExam(String worldKey) async {
+    if (_opening) return;
+    setState(() => _opening = true);
+    try {
+      final today = await _quests.fetchTodayAll(worldKey);
+      final needsNext = today.assignments.isNotEmpty &&
+          today.assignments.last.attemptStatus == 'SUBMITTED';
+      if (needsNext && !today.canRequestNext) {
+        throw Exception(
+            'Sesi simulasi hari ini selesai. Tambah sesi per hari atau kembali besok.');
+      }
+      if (!mounted) return;
+      await Navigator.of(context).push<bool>(MaterialPageRoute(
+          builder: (_) =>
+              QuestScreen(worldKey: worldKey, requestNext: needsNext)));
+      if (mounted) await _refresh();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$error')));
+      }
+    } finally {
+      if (mounted) setState(() => _opening = false);
     }
   }
 
@@ -137,7 +165,7 @@ class _KoreanPathScreenState extends State<KoreanPathScreen> {
                               value: total == 0 ? 0 : completed / total),
                           const SizedBox(height: 12),
                           Text(
-                              'Nilai lulus ${path['passScore']} · sekitar 20 menit per pelajaran'),
+                              'Nilai lulus ${path['passScore']} · 20 menit latihan, hingga 45 menit untuk writing challenge'),
                           Row(children: [
                             const Expanded(child: Text('Sesi per hari')),
                             DropdownButton<int>(
@@ -170,6 +198,34 @@ class _KoreanPathScreenState extends State<KoreanPathScreen> {
                               )),
                         ],
                       ))),
+              if ((path['practiceExams'] as List? ?? []).isNotEmpty)
+                Card(
+                    child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Simulasi TOPIK II',
+                                style: TextStyle(
+                                    fontSize: 20, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            const Text(
+                                'Latihan berwaktu. Writing direview; hasil latihan bukan skor TOPIK resmi.'),
+                            for (final exam in (path['practiceExams'] as List)
+                                .cast<Map<String, dynamic>>())
+                              Padding(
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: OutlinedButton.icon(
+                                    onPressed: _opening
+                                        ? null
+                                        : () => _openExam(
+                                            exam['worldKey'] as String),
+                                    icon: const Icon(Icons.timer_outlined),
+                                    label: Text(
+                                        '${exam['mode']} · ${exam['questionCount']} soal · ${exam['minutes']} menit'),
+                                  )),
+                          ],
+                        ))),
               for (final unit in units) ...[
                 Padding(
                     padding: const EdgeInsets.fromLTRB(8, 22, 8, 8),
@@ -206,12 +262,14 @@ class _KoreanPathScreenState extends State<KoreanPathScreen> {
                         ? 'Selesai'
                         : lesson['state'] == 'LOCKED'
                             ? 'Lulus pelajaran sebelumnya untuk membuka'
-                            : '${lesson['activityCount']} latihan · ${lesson['xpReward']} XP'),
+                            : lesson['state'] == 'REVIEW_PENDING'
+                                ? 'Writing menunggu penilaian reviewer'
+                                : '${lesson['activityCount']} latihan · ${lesson['xpReward']} XP'),
                     trailing: lesson['state'] == 'AVAILABLE'
                         ? const Icon(Icons.chevron_right)
                         : null,
                     onTap: lesson['state'] == 'AVAILABLE' && !_opening
-                        ? _openLesson
+                        ? () => _openLesson(unit['competencyId'] as String?)
                         : null,
                   )),
               ],

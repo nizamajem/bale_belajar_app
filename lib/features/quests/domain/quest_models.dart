@@ -16,6 +16,8 @@ class QuestSummary {
     required this.chapterTitle,
     required this.questions,
     this.attemptStatus,
+    this.missionType,
+    this.expiresAt,
   });
 
   factory QuestSummary.fromJson(Map<String, dynamic> json) {
@@ -40,6 +42,8 @@ class QuestSummary {
       chapterTitle: chapter?['title'] as String?,
       questions: questions,
       attemptStatus: attempt?['status'] as String?,
+      missionType: quest['missionType'] as String?,
+      expiresAt: DateTime.tryParse(attempt?['expiresAt'] as String? ?? ''),
     );
   }
 
@@ -55,6 +59,10 @@ class QuestSummary {
   final String? chapterTitle;
   final List<TemplateQuestion> questions;
   final String? attemptStatus;
+  final String? missionType;
+  final DateTime? expiresAt;
+  bool get isTimedExam =>
+      missionType == 'TOPIK_MOCK_PBT' || missionType == 'TOPIK_MOCK_IBT';
 }
 
 /// Semua misi hari ini untuk satu dunia (sequence 1..N) - dipetakan dari
@@ -211,6 +219,7 @@ class QuestQuestionResult {
     required this.score,
     required this.isCorrect,
     required this.evaluationStatus,
+    this.feedback,
   });
 
   factory QuestQuestionResult.fromJson(Map<String, dynamic> json) {
@@ -220,6 +229,7 @@ class QuestQuestionResult {
       isCorrect: json['isCorrect'] as bool?,
       evaluationStatus:
           json['evaluationStatus'] as String? ?? 'MENTOR_REVIEW_NEEDED',
+      feedback: json['feedback'] as String?,
     );
   }
 
@@ -227,6 +237,7 @@ class QuestQuestionResult {
   final double? score;
   final bool? isCorrect;
   final String evaluationStatus;
+  final String? feedback;
 
   bool get isPendingReview => evaluationStatus == 'MENTOR_REVIEW_NEEDED';
 }
@@ -242,6 +253,7 @@ class QuestSubmitResult {
     required this.worldLevel,
     required this.worldLeveledUp,
     required this.questions,
+    this.exam,
   });
 
   factory QuestSubmitResult.fromJson(Map<String, dynamic> json) {
@@ -259,6 +271,7 @@ class QuestSubmitResult {
           .cast<Map<String, dynamic>>()
           .map(QuestQuestionResult.fromJson)
           .toList(),
+      exam: json['exam'] as Map<String, dynamic>?,
     );
   }
 
@@ -270,6 +283,7 @@ class QuestSubmitResult {
   final int? worldLevel;
   final bool worldLeveledUp;
   final List<QuestQuestionResult> questions;
+  final Map<String, dynamic>? exam;
 
   int get autoScoredCount =>
       questions.where((question) => !question.isPendingReview).length;
@@ -283,6 +297,12 @@ class QuestSubmitResult {
   String get recommendation {
     if (pendingReviewCount > 0) {
       return 'Ada jawaban yang menunggu review mentor. Sambil menunggu, ulangi materi dan cek alasan jawabanmu.';
+    }
+    if (exam != null) {
+      final sections = (exam!['sections'] as List).cast<Map<String, dynamic>>();
+      final sorted = [...sections]..sort((a, b) =>
+          (a['score'] as num? ?? 0).compareTo(b['score'] as num? ?? 0));
+      return 'Bagian terendah pada latihan ini: ${sorted.first['section']}. Tinjau alasan jawaban, kerjakan ulang tugas yang terlewat, dan gunakan feedback writing untuk latihan berikutnya.';
     }
     if (overallScore >= 80) {
       return 'Pemahamanmu kuat. Lanjutkan ke quest berikutnya atau coba world lain.';
@@ -420,6 +440,7 @@ TemplateQuestion questionFromBackendJson(Map<String, dynamic> json) {
     timelineItems: timelineItems,
     evidenceItems: evidenceItems,
     codeConfig: codeConfig,
+    savedAnswer: json['savedAnswer'] as Map<String, dynamic>?,
   );
 }
 

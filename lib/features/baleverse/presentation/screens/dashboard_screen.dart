@@ -67,7 +67,7 @@ class DashboardScreen extends StatelessWidget {
                         style: TextStyle(fontWeight: FontWeight.bold))),
                 title: const Text('Belajar Bahasa Korea',
                     style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Hangul → percakapan sehari-hari'),
+                subtitle: const Text('Hangul → persiapan TOPIK II level 6'),
                 trailing: const Icon(Icons.arrow_forward_rounded),
                 onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => const KoreanPathScreen())),

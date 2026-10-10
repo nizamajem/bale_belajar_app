@@ -46,6 +46,7 @@ class TemplateQuestion {
     this.timelineItems = const [],
     this.evidenceItems = const [],
     this.codeConfig,
+    this.savedAnswer,
   });
 
   final String id;
@@ -62,6 +63,7 @@ class TemplateQuestion {
   final List<TimelineItem> timelineItems;
   final List<EvidenceItem> evidenceItems;
   final CodeConfig? codeConfig;
+  final Map<String, dynamic>? savedAnswer;
 }
 
 class TemplateOption {

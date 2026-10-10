@@ -53,6 +53,7 @@ class _QuestScreenState extends State<QuestScreen> {
   @override
   void dispose() {
     _controller.removeListener(_onChange);
+    _controller.dispose();
     super.dispose();
   }
 
@@ -91,6 +92,26 @@ class _QuestScreenState extends State<QuestScreen> {
             onRetry: _controller.load,
           );
         }
+        if (widget.worldKey.startsWith('korean-') && !_hasOpenedMaterial) {
+          return Scaffold(
+            backgroundColor: _questBg,
+            appBar: AppBar(title: const Text('Materi pelajaran Korea')),
+            body: ListView(padding: const EdgeInsets.all(20), children: [
+              Text(_controller.quest!.title,
+                  style: const TextStyle(
+                      fontSize: 24, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              Text(_controller.quest!.objective),
+              const SizedBox(height: 20),
+              SelectableText(_controller.quest!.studentInstruction,
+                  style: const TextStyle(fontSize: 18, height: 1.6)),
+              const SizedBox(height: 24),
+              FilledButton(
+                  onPressed: () => setState(() => _hasOpenedMaterial = true),
+                  child: const Text('Mulai latihan')),
+            ]),
+          );
+        }
         if (widget.worldKey.toLowerCase() == 'detectivia' &&
             !_hasOpenedMaterial) {
           return _DetectiveMaterialScreen(
@@ -98,11 +119,18 @@ class _QuestScreenState extends State<QuestScreen> {
             onStart: () => setState(() => _hasOpenedMaterial = true),
           );
         }
-        return Stack(
+        final content = Stack(
           children: [
             IgnorePointer(
-              ignoring: _controller.isSavingAnswer,
+              ignoring: _controller.isSavingAnswer || _controller.examExpired,
               child: QuestQuestionView(
+                key: ValueKey(_controller.currentQuestion.id),
+                worldKey: widget.worldKey,
+                onDraft: _controller.isTimedExam
+                    ? _controller.saveCurrentDraft
+                    : null,
+                savedAnswer:
+                    _controller.answers[_controller.currentQuestion.id],
                 question: _controller.currentQuestion,
                 currentQuestion: _controller.currentIndex + 1,
                 totalQuestions: _controller.totalQuestions,
@@ -124,6 +152,46 @@ class _QuestScreenState extends State<QuestScreen> {
                 child: const _QuestSavingOverlay(),
               ),
           ],
+        );
+        if (!_controller.isTimedExam) return content;
+        final seconds = _controller.remainingSeconds;
+        return Scaffold(
+          appBar: AppBar(
+              title: Text(
+                  'Sisa ${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}'),
+              actions: [
+                TextButton(
+                    onPressed:
+                        _controller.isSavingAnswer ? null : _controller.submit,
+                    child: const Text('Kirim sekarang'))
+              ]),
+          body: Column(children: [
+            Expanded(child: content),
+            SafeArea(
+                top: false,
+                child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Row(children: [
+                      IconButton(
+                          onPressed: _controller.currentIndex == 0 ||
+                                  _controller.examExpired
+                              ? null
+                              : () => _controller
+                                  .goToQuestion(_controller.currentIndex - 1),
+                          icon: const Icon(Icons.chevron_left)),
+                      Expanded(
+                          child: Text(
+                              '${_controller.answers.length}/${_controller.totalQuestions} jawaban · soal kosong mendapat 0',
+                              textAlign: TextAlign.center)),
+                      TextButton(
+                          onPressed: _controller.isLastQuestion ||
+                                  _controller.examExpired
+                              ? null
+                              : () => _controller
+                                  .goToQuestion(_controller.currentIndex + 1),
+                          child: const Text('Berikutnya')),
+                    ]))),
+          ]),
         );
     }
   }
@@ -529,7 +597,9 @@ class _QuestRewardScreen extends StatelessWidget {
                         Expanded(
                           child: _RewardStat(
                             label: 'Skor',
-                            value: '${result.overallScore.round()}',
+                            value: result.pendingReviewCount > 0
+                                ? 'Pending'
+                                : '${result.overallScore.round()}',
                             color: _questGreen,
                           ),
                         ),
@@ -557,6 +627,34 @@ class _QuestRewardScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     _LearningFeedback(result: result),
                     const SizedBox(height: 12),
+                    if (result.exam != null) ...[
+                      Card(
+                          child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Hasil latihan ${result.exam!['mode']}',
+                                      style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold)),
+                                  for (final section
+                                      in (result.exam!['sections'] as List)
+                                          .cast<Map<String, dynamic>>())
+                                    Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: Text(
+                                            '${section['section']}: ${section['reviewPending'] == true ? 'menunggu review' : '${section['score']} / 100'}')),
+                                  if (result.exam!['pbtPracticePoints'] != null)
+                                    Text(
+                                        'Poin latihan PBT: ${result.exam!['pbtPracticePoints']} / 300'),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                      'Soal asli Bale Belajar. Hasil ini bukan nilai TOPIK resmi atau prediksi kelulusan. Skor latihan IBT tidak dikonversi ke skala resmi 600.'),
+                                ],
+                              ))),
+                      const SizedBox(height: 12),
+                    ],
                     _QuestionResultList(result: result),
                     const SizedBox(height: 18),
                   ],
@@ -695,6 +793,10 @@ class _QuestionResultTile extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+              ],
+              if (question.feedback != null) ...[
+                const SizedBox(height: 8),
+                Text(question.feedback!),
               ],
             ],
           ),
