@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/game_profile_repository.dart';
 import '../../domain/baleverse_models.dart';
+import 'korean_path_screen.dart';
 
 const _homeBg = Color(0xFFFFF3C6);
 const _homeInk = Color(0xFF3B2318);
@@ -59,6 +60,20 @@ class DashboardScreen extends StatelessWidget {
               compact: compact,
             ),
             SizedBox(height: compact ? 8 : 14),
+            Card(
+              child: ListTile(
+                leading: const CircleAvatar(
+                    child: Text('한',
+                        style: TextStyle(fontWeight: FontWeight.bold))),
+                title: const Text('Belajar Bahasa Korea',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Hangul → percakapan sehari-hari'),
+                trailing: const Icon(Icons.arrow_forward_rounded),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => const KoreanPathScreen())),
+              ),
+            ),
+            SizedBox(height: compact ? 8 : 14),
             Expanded(
               child: _JourneyMapCard(
                 worlds: realWorlds,
@@ -91,7 +106,8 @@ class _HeroStatsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.fromLTRB(18, compact ? 14 : 20, 18, compact ? 14 : 20),
+      padding:
+          EdgeInsets.fromLTRB(18, compact ? 14 : 20, 18, compact ? 14 : 20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -204,8 +220,9 @@ class _HeroStatsCard extends StatelessWidget {
                     icon: Icons.workspace_premium_rounded,
                     color: const Color(0xFF8B5CF6),
                     label: 'Rank',
-                    value:
-                        gameProfile == null ? '-' : _formatRank(gameProfile!.rank),
+                    value: gameProfile == null
+                        ? '-'
+                        : _formatRank(gameProfile!.rank),
                   ),
                 ),
               ],
@@ -388,10 +405,9 @@ class _JourneyMapCard extends StatelessWidget {
                     nodeHeight = constraints.maxHeight / visibleCount;
                   }
                   nodeHeight = nodeHeight.clamp(minNodeHeight, maxNodeHeight);
-                  final scale =
-                      (nodeHeight / baseNodeHeight).clamp(0.58, 1.15);
-                  final visibleWorlds = worlds.take(visibleCount).toList();
-                  return Column(
+                  final scale = (nodeHeight / baseNodeHeight).clamp(0.58, 1.15);
+                  final visibleWorlds = worlds;
+                  return ListView(
                     children: [
                       for (final entry in visibleWorlds.asMap().entries)
                         SizedBox(
@@ -513,9 +529,8 @@ class _JourneyNode extends StatelessWidget {
                             : const Color(0xFFFFFAEA),
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
-                          color: selected
-                              ? _homeYellow
-                              : const Color(0xFFFFE0A1),
+                          color:
+                              selected ? _homeYellow : const Color(0xFFFFE0A1),
                           width: selected ? 1.6 : 1,
                         ),
                       ),
@@ -542,9 +557,8 @@ class _JourneyNode extends StatelessWidget {
                               subject,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              textAlign: alignRight
-                                  ? TextAlign.right
-                                  : TextAlign.left,
+                              textAlign:
+                                  alignRight ? TextAlign.right : TextAlign.left,
                               style: TextStyle(
                                 color: const Color(0xFF60646F),
                                 fontSize: (11 * scale).clamp(9.0, 12.0),
@@ -563,15 +577,13 @@ class _JourneyNode extends StatelessWidget {
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(999),
                                   child: LinearProgressIndicator(
-                                    value:
-                                        ((masteryPercent ?? 0) / 100).clamp(
+                                    value: ((masteryPercent ?? 0) / 100).clamp(
                                       0,
                                       1,
                                     ),
                                     minHeight: 6 * scale,
                                     color: color,
-                                    backgroundColor:
-                                        const Color(0xFFFFE0A1),
+                                    backgroundColor: const Color(0xFFFFE0A1),
                                   ),
                                 ),
                               ),
@@ -597,15 +609,13 @@ class _JourneyNode extends StatelessWidget {
                                   ),
                                   decoration: BoxDecoration(
                                     color: _homeGreen,
-                                    borderRadius:
-                                        BorderRadius.circular(999),
+                                    borderRadius: BorderRadius.circular(999),
                                   ),
                                   child: Text(
                                     'Aktif',
                                     style: TextStyle(
                                       color: Colors.white,
-                                      fontSize:
-                                          (9 * scale).clamp(8.0, 10.0),
+                                      fontSize: (9 * scale).clamp(8.0, 10.0),
                                       fontWeight: FontWeight.w900,
                                     ),
                                   ),

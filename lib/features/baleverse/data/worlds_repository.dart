@@ -12,6 +12,11 @@ class WorldsRepository {
 
   final ApiClient _apiClient;
 
+  Future<Map<String, dynamic>> fetchKoreanPath() async {
+    final data = await _apiClient.get('/student/korean/path');
+    return Map<String, dynamic>.from(data as Map<String, dynamic>);
+  }
+
   /// Bentuk hasilnya disesuaikan supaya cocok dengan yang dipakai
   /// world_detail_screen.dart dan baleverse_demo_screen.dart (key
   /// UPPERCASE, dst).

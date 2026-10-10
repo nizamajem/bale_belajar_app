@@ -16,6 +16,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/mission_hub_screen.dart';
 import 'screens/world_curriculum_screen.dart';
 import 'screens/world_detail_screen.dart';
+import 'screens/korean_path_screen.dart';
 
 enum BaleTab { home, curriculum, mission, profile }
 
@@ -268,6 +269,15 @@ class _BaleVerseDemoScreenState extends State<BaleVerseDemoScreen> {
   void _startMission([String? competencyId]) {
     final backendWorldKey = _selectedBackendWorldKey;
     if (backendWorldKey.isNotEmpty) {
+      if (backendWorldKey == 'korean-learning') {
+        Navigator.of(context)
+            .push(MaterialPageRoute<void>(
+                builder: (_) => const KoreanPathScreen()))
+            .then((_) {
+          if (mounted) _loadBackendData();
+        });
+        return;
+      }
       AudioScope.maybeOf(context)?.playSound(SoundEffectId.pageTransition);
       // Dunia berkind VOCAB (Dunia Korea/Inggris) tidak punya Quest/Chapter -
       // WorldCurriculumScreen akan kosong/error kalau dipaksa. "Mulai" untuk
