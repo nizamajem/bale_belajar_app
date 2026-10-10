@@ -410,22 +410,25 @@ class _JourneyMapCard extends StatelessWidget {
                   return ListView(
                     children: [
                       for (final entry in visibleWorlds.asMap().entries)
-                        SizedBox(
-                          height: nodeHeight,
-                          child: _JourneyNode(
-                            world: entry.value,
-                            index: entry.key,
-                            isLast: entry.key == visibleWorlds.length - 1,
-                            scale: scale,
-                            selected: (entry.value['key'] as String?)
-                                    ?.toLowerCase() ==
-                                selectedBackendWorldKey,
-                            masteryPercent: masteryAverages[
-                                    (entry.value['key'] as String?)
-                                            ?.toLowerCase() ??
-                                        '']
-                                ?.round(),
-                            onTap: () => onSelectWorld(entry.value),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(minHeight: nodeHeight),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: _JourneyNode(
+                              world: entry.value,
+                              index: entry.key,
+                              isLast: entry.key == visibleWorlds.length - 1,
+                              scale: scale,
+                              selected: (entry.value['key'] as String?)
+                                      ?.toLowerCase() ==
+                                  selectedBackendWorldKey,
+                              masteryPercent: masteryAverages[
+                                      (entry.value['key'] as String?)
+                                              ?.toLowerCase() ??
+                                          '']
+                                  ?.round(),
+                              onTap: () => onSelectWorld(entry.value),
+                            ),
                           ),
                         ),
                     ],
